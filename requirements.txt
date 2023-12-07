@@ -3,6 +3,6 @@ pandas
 matplotlib
 seaborn
 squarify
-sklearn
+scikit-learn
 scipy
 numpy
