@@ -1,3 +1,4 @@
+# Importação das bibliotecas necessárias
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -5,26 +6,33 @@ import seaborn as sns
 import squarify
 from sklearn.preprocessing import StandardScaler
 
+# Carrega o arquivo CSV e valida os dados
 @st.cache_data
 def upload_file():
     try:
+        # Leitura do arquivo CSV
         df = pd.read_csv('Credit_Card_Customers.csv')
-
+        
+        # Verifica se o arquivo possui as colunas necessárias
         if {'Customer_Age', 'Gender', 'Dependent_count', 
             'Income_Category','Card_Category', 'Avg_Open_To_Buy',
             'Total_Trans_Amt', 'Total_Trans_Ct', 'Credit_Limit',
             'Avg_Utilization_Ratio'}.issubset(df.columns):
             return (True, df)
         else:
+            # Se o arquivo não possuir as colunas adequadas, exibe um erro  
             st.error('O arquivo não possui o formato adequado!', icon="🚨")
             return (False, None)  
-    except FileNotFoundError:        
+    except FileNotFoundError:   
+        # Se o arquivo não for encontrado, exibe uma mensagem informativa                
         st.info("""
             Não foram encontrados os dados sobre a movimentação financeira dos clientes!\n
             Verifique se o arquivo 'Credit_Card_Customers.csv' está na pasta raiz.""", icon="ℹ️") 
         return (False, None)
-
+        
+# Função para plotar a distribuição das variáveis numéricas
 def plot_numeric_features(serie, kde=True):
+    # Cria um subplot com 2 gráficos: histograma com/sem KDE e boxplot
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,4))
 
     # Criação do histograma com KDE
@@ -48,7 +56,9 @@ def plot_numeric_features(serie, kde=True):
     plt.tight_layout()
     return fig
 
+# Função para plotar a contagem de categorias de variáveis categóricas
 def plot_categorical_features(serie):
+    # Cria um subplot com 2 gráficos: gráfico de barras e gráfico de pizza ou tree map    
     fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,4))
 
     # Ordena os dados em ordem decrescente
@@ -88,6 +98,7 @@ def plot_categorical_features(serie):
     plt.tight_layout()
     return fig
 
+# Função para plotar a relação entre variáveis e 'Credit_Limit'
 def plot_credit_limit_relationships(data, x, hue, split):
     if hue != '' and split:
         g = sns.relplot(data=data, x=x, y='Credit_Limit', hue=hue, col=hue, col_wrap=2, legend=False)
@@ -109,6 +120,7 @@ def plot_credit_limit_relationships(data, x, hue, split):
     plt.tight_layout()
     return fig
 
+# Função para plotar a matriz de correlação entre variáveis numéricas
 @st.cache_data
 def plot_correlation_matrix(data):
     # Cria uma instância do objeto de escalonamento
@@ -125,27 +137,33 @@ def plot_correlation_matrix(data):
     ax = sns.heatmap(df_scale.corr(), annot=True, fmt=".1f", linewidth=.5, cmap="YlOrRd")
     return ax.figure
 
-
+# Configuração da página com layout amplo e título
 st.set_page_config(layout='wide')
 st.title('Análise Exploratória de Dados (EDA)')
 
+# Carrega o arquivo e verifica se foi carregado com sucesso
 file_loaded, bank = upload_file()
 
 if file_loaded:
+    # Seção expansível para visualização unidimensional
     with st.expander('Visualização Unidimensional'):
         col1, col2, col3 = st.columns(3)
-
+        
         with col1:
+            # Permite ao usuário selecionar o tipo de variável a ser visualizada (numérica ou categórica)
             var_type = st.radio('Selecione o tipo da variável:', options=['Numérica', 'Categórica'], horizontal=True)           
 
         with col2:
             if var_type == 'Numérica':
+                # Lista as variáveis numéricas (exceto 'Credit_Limit')
                 var_list = bank.select_dtypes('number').drop('Credit_Limit', axis=1).columns.to_list()
                 numeric = True
             else:
+                # Lista as variáveis categóricas
                 var_list = bank.select_dtypes(exclude='number').columns.to_list()
                 numeric = False
 
+            # Permite ao usuário selecionar as variáveis a serem visualizadas        
             features = st.multiselect('Nome', options=var_list) 
 
         with col3:
@@ -154,25 +172,29 @@ if file_loaded:
             kde = st.checkbox('Visualizar KDE', value=False)        
 
         if features:
+            # Plota os gráficos correspondentes para cada variável selecionada
             for var_name in features:
                 if numeric:
                     st.pyplot(plot_numeric_features(bank[var_name], kde))
                 else:
                     st.pyplot(plot_categorical_features(bank[var_name]))
 
-
+    # Seção expansível para visualização multidimensional
     with st.expander('Visualização Multidimensional'):
         col1, col2, col3 = st.columns(3)
 
         with col1:
+            # Permite ao usuário selecionar a variável para o eixo X
             x_list = bank.select_dtypes('number').drop('Credit_Limit', axis=1).columns.to_list()
             x_list.insert(0, '')
             axis_x = st.selectbox('Eixo X', options=x_list)
 
         with col2:
+            # Define a variável para o eixo Y (fixa como 'Credit_Limit')            
             axis_y = st.selectbox('Eixo Y', options=['Credit_Limit'], disabled=True)
 
         with col3:
+            # Permite ao usuário selecionar uma variável para agrupar ou separar categorias            
             group_list = bank.select_dtypes(exclude='number').columns.to_list()
             group_list.insert(0, '')
 
@@ -180,7 +202,10 @@ if file_loaded:
             split_group = st.checkbox('Separar categorias', value=False)  
 
         if axis_x != '':
+            # Plota gráficos de dispersão para visualizar relações entre as variáveis e 'Credit_Limit'            
             st.pyplot(plot_credit_limit_relationships(bank, axis_x, group, split_group))      
         
+    # Seção expansível para matriz de correlação
     with st.expander('Matriz de Correlação'):
+        # Plota a matriz de correlação entre variáveis numéricas        
         st.pyplot(plot_correlation_matrix(bank))
