@@ -92,12 +92,10 @@ def apply_standard_scaler(data):
 
 st.set_page_config(layout='wide')
 st.title('Pré-Processamento')
-st.write('Etapa do projeto que consiste em preparar os dados para análise e modelagem, garantindo que estejam prontos e em condições ideais para que sejam utilizdos pelos algoritmos de machine learning.')
 
 file_loaded, bank = upload_file()
 
 if file_loaded:
-    st.write('Objetivo: Tornar a distribuição dos dados mais simétrica.')
     with st.expander('Transformação Logarítmica'):
         bank = add_log_features(bank)
 
