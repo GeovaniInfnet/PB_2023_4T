@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from PIL import Image
@@ -36,13 +35,13 @@ if file_loaded:
     with st.expander('Dicionário de Dados'):
         st.write("""
             - **Customer_Age**: Idade do cliente.
-            - <b>Gender</b>: Gênero do cliente.
-            - <b>Dependent_count</b>: Número de dependentes.
-            - <b>Income_Category</b>: Renda anual.
-            - <b>Card_Category</b>: Tipo de cartão.
-            - <b>Avg_Open_To_Buy</b>: Valor total das linhas de crédito disponíveis para empréstimo e financiamento.
-            - <b>Total_Trans_Amt</b>: Valor total das transações feitas no cartão (últimos 12 meses).
-            - <b>Total_Trans_Ct</b>: Contagem total das transações feitas no cartão (últimos 12 meses).
-            - <b>Credit_Limit</b>: Limite de crédito no cartão de crédito.
-            - <b>Avg_Utilization_Ratio</b>: Índice médio de utilização do cartão.        
+            - **Gender**: Gênero do cliente.
+            - **Dependent_count**: Número de dependentes.
+            - **Income_Category**: Renda anual.
+            - **Card_Category**: Tipo de cartão.
+            - **Avg_Open_To_Buy**: Valor total das linhas de crédito disponíveis para empréstimo e financiamento.
+            - **Total_Trans_Amt**: Valor total das transações feitas no cartão (últimos 12 meses).
+            - **Total_Trans_Ct**: Contagem total das transações feitas no cartão (últimos 12 meses).
+            - **Credit_Limit**: Limite de crédito no cartão de crédito.
+            - **Avg_Utilization_Ratio**: Índice médio de utilização do cartão.        
         """)
