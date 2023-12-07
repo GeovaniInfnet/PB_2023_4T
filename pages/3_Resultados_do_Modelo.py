@@ -1,3 +1,4 @@
+# Importação das bibliotecas necessárias
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -10,35 +11,43 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
 
-
+# Carrega o arquivo CSV e valida os dados
 @st.cache_data
 def upload_file():
     try:
+        # Leitura do arquivo CSV
         df = pd.read_csv('Credit_Card_Customers.csv')
 
+        # Verifica se o arquivo possui as colunas necessárias
         if {'Customer_Age', 'Gender', 'Dependent_count', 
             'Income_Category','Card_Category', 'Avg_Open_To_Buy',
             'Total_Trans_Amt', 'Total_Trans_Ct', 'Credit_Limit',
             'Avg_Utilization_Ratio'}.issubset(df.columns):
             return (True, df)
         else:
+            # Se o arquivo não possuir as colunas adequadas, exibe um erro  
             st.error('O arquivo não possui o formato adequado!', icon="🚨")
             return (False, None)  
     except FileNotFoundError:        
+        # Se o arquivo não for encontrado, exibe uma mensagem informativa 
         st.info("""
             Não foram encontrados os dados sobre a movimentação financeira dos clientes!\n
             Verifique se o arquivo 'Credit_Card_Customers.csv' está na pasta raiz.""", icon="ℹ️") 
         return (False, None)
 
+# Função para aplicar transformações logarítmicas em algumas colunas assimétricas
 def transform_log_features(data):
+    # Aplica log em algumas variáveis assimétricas
     data['Avg_Open_To_Buy'] = data['Avg_Open_To_Buy'].apply(lambda s: np.log(s))
     data['Total_Trans_Amt'] = data['Total_Trans_Amt'].apply(lambda s: np.log(s))
     data['Total_Trans_Ct'] = data['Total_Trans_Ct'].apply(lambda s: np.log(s))
-
+    
+    # Realiza a transformação 'yeo-johnson' na variável 'Avg_Utilization_Ratio'    
     data_transformed, _ = stats.yeojohnson(data['Avg_Utilization_Ratio'])
     data['Avg_Utilization_Ratio'] = data_transformed    
     return data
 
+# Função que realiza a codificação de variáveis categóricas utilizando LabelEncoder
 def encode_features(data):
     dict_encoders = {}
 
@@ -54,6 +63,7 @@ def encode_features(data):
     
     return data, dict_encoders
 
+# Função que realiza todo o pré-processamento dos dados
 @st.cache_data
 def pre_processing(data):
     data = transform_log_features(data)
@@ -80,6 +90,7 @@ def pre_processing(data):
     y = bank_model.iloc[:, 9].values    
     return X, y, dict_encoders, bank_model
 
+# Função para treinar o modelo de regressão linear
 @st.cache_data
 def model_training(X_train, y_train, X_test, y_test):
     model = LinearRegression()
@@ -94,6 +105,7 @@ def model_training(X_train, y_train, X_test, y_test):
 
     return y_pred, mae, mape, mse, rmse
 
+# Função para plotar o gráfico de regressão
 def plot_regression(feature_idx, feature_name, encoded=False, dict_encoders=None):
     plt.figure(figsize=(10,4))
 
@@ -117,14 +129,17 @@ def plot_regression(feature_idx, feature_name, encoded=False, dict_encoders=None
  
     return ax.figure
 
-
+# Configuração da página com layout amplo e título
 st.set_page_config(layout='wide')
 st.title('Resultados do Modelo')
 
+# Carrega o arquivo e verifica se foi carregado com sucess  
 file_loaded, bank = upload_file()
 
 if file_loaded:
     bank_selection = bank.copy()
+    
+    # Pré-processamento dos dados
     X, y, dict_encoders, bank_model = pre_processing(bank)
 
     # 70% serão usados para treino. 30% serão usados para teste.
@@ -136,9 +151,11 @@ if file_loaded:
     # Transformação de escala das variáveis independentes
     X_train = ss.fit_transform(X_train)
     X_test = ss.fit_transform(X_test)
-
+    
+    # Treinamento e avaliação do modelo
     y_pred, mae, mape, mse, rmse = model_training(X_train, y_train, X_test, y_test)
 
+    # Seção expansíveis para métricas e visualização dos resultados    
     with st.expander('Métricas'):
         dict_metric = {
             'MAE (Mean Absolute Error)': mae,
@@ -150,19 +167,22 @@ if file_loaded:
         df_metric = pd.DataFrame(dict_metric.items(), columns=['Métrica', 'Valor'])
         st.data_editor(df_metric, disabled=True, hide_index=True, use_container_width=True)
 
+    # Seção expansíveis para visualização dos resultados 
     with st.expander('Visualização dos Resultados'):
         # Inverte a escala nos dados de teste antes da plotagem
         X_test_inverse = ss.inverse_transform(X_test)
-        
+
+        # Lista de variáveis do banco de dados original
         var_list = bank_selection.drop('Credit_Limit', axis=1).columns.to_list()
         features = st.multiselect('Selecione a variável:', options=var_list)
-
         categorical_list = bank.select_dtypes(exclude='number').columns.to_list()
         
         if features:
             for feature in features:
                 if feature in categorical_list:
+                    # Plota gráfico de dispersão para variáveis categóricas codificadas
                     st.pyplot(plot_regression(bank_model.columns.get_loc(dict_encoders[feature][1]), 
                                               feature_name=feature, encoded=True, dict_encoders=dict_encoders))
                 else:
+                    # Plota gráfico de dispersão para variáveis numéricas
                     st.pyplot(plot_regression(bank_model.columns.get_loc(feature), feature_name=feature))
