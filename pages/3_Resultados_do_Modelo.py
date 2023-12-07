@@ -124,6 +124,7 @@ st.title('Resultados do Modelo')
 file_loaded, bank = upload_file()
 
 if file_loaded:
+    bank_selection = bank.copy()
     X, y, dict_encoders, bank_model = pre_processing(bank)
 
     # 70% serão usados para treino. 30% serão usados para teste.
@@ -153,7 +154,7 @@ if file_loaded:
         # Inverte a escala nos dados de teste antes da plotagem
         X_test_inverse = ss.inverse_transform(X_test)
         
-        var_list = bank.drop('Credit_Limit', axis=1).columns.to_list()
+        var_list = bank_selection.drop('Credit_Limit', axis=1).columns.to_list()
         features = st.multiselect('Selecione a variável:', options=var_list)
 
         categorical_list = bank.select_dtypes(exclude='number').columns.to_list()
