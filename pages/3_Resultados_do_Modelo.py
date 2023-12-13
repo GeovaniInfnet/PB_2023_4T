@@ -92,11 +92,11 @@ def pre_processing(data):
 
 # Função para treinar o modelo de regressão linear
 @st.cache_data
-def model_training(X_train, y_train, X_test, y_test):
+def model_training(X_train_scaled, y_train, X_test_scaled, y_test):
     model = LinearRegression()
-    model.fit(X_train, y_train)
+    model.fit(X_train_scaled, y_train)
     
-    y_pred = model.predict(X_test)
+    y_pred = model.predict(X_test_scaled)
 
     mape = mean_absolute_percentage_error(y_test, y_pred)
     mae = mean_absolute_error(y_test, y_pred)
@@ -106,7 +106,7 @@ def model_training(X_train, y_train, X_test, y_test):
     return y_pred, mae, mape, mse, rmse
 
 # Função para plotar o gráfico de regressão
-def plot_regression(feature_idx, feature_name, encoded=False, dict_encoders=None):
+def plot_regression(X_test_inverse, feature_idx, feature_name, encoded=False, dict_encoders=None):
     plt.figure(figsize=(10,4))
 
     # Seleciona somente os dados pedidos pelo plot
@@ -145,15 +145,15 @@ if file_loaded:
     # 70% serão usados para treino. 30% serão usados para teste.
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
 
-    # Cria uma instância do objeto de escalonamento
-    ss = StandardScaler()
-
     # Transformação de escala das variáveis independentes
-    X_train = ss.fit_transform(X_train)
-    X_test = ss.fit_transform(X_test)
+    ss_train = StandardScaler()
+    X_train_scaled = ss_train.fit_transform(X_train)
+
+    ss_test = StandardScaler()
+    X_test_scaled = ss_test.fit_transform(X_test)
     
     # Treinamento e avaliação do modelo
-    y_pred, mae, mape, mse, rmse = model_training(X_train, y_train, X_test, y_test)
+    y_pred, mae, mape, mse, rmse = model_training(X_train_scaled, y_train, X_test_scaled, y_test)
 
     # Seção expansíveis para métricas e visualização dos resultados    
     with st.expander('Métricas'):
@@ -170,7 +170,7 @@ if file_loaded:
     # Seção expansíveis para visualização dos resultados 
     with st.expander('Visualização dos Resultados'):
         # Inverte a escala nos dados de teste antes da plotagem
-        X_test_inverse = ss.inverse_transform(X_test)
+        X_test_inverse = ss_test.inverse_transform(X_test)
 
         # Lista de variáveis do banco de dados original
         var_list = bank_selection.drop('Credit_Limit', axis=1).columns.to_list()
@@ -181,8 +181,13 @@ if file_loaded:
             for feature in features:
                 if feature in categorical_list:
                     # Plota gráfico de dispersão para variáveis categóricas codificadas
-                    st.pyplot(plot_regression(bank_model.columns.get_loc(dict_encoders[feature][1]), 
-                                              feature_name=feature, encoded=True, dict_encoders=dict_encoders))
+                    st.pyplot(plot_regression(X_test_inverse, 
+                                              bank_model.columns.get_loc(dict_encoders[feature][1]), 
+                                              feature_name=feature, 
+                                              encoded=True, 
+                                              dict_encoders=dict_encoders))
                 else:
                     # Plota gráfico de dispersão para variáveis numéricas
-                    st.pyplot(plot_regression(bank_model.columns.get_loc(feature), feature_name=feature))
+                    st.pyplot(plot_regression(X_test_inverse,
+                                              bank_model.columns.get_loc(feature), 
+                                              feature_name=feature))
