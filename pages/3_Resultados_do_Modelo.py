@@ -143,7 +143,7 @@ if file_loaded:
     X, y, dict_encoders, bank_model = pre_processing(bank)
 
     # 70% serão usados para treino. 30% serão usados para teste.
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=2)
 
     # Transformação de escala das variáveis independentes
     ss_train = StandardScaler()
