@@ -6,7 +6,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import PowerTransformer
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
@@ -35,17 +36,6 @@ def upload_file():
             Verifique se o arquivo 'Credit_Card_Customers.csv' está na pasta raiz.""", icon="ℹ️") 
         return (False, None)
 
-# Função para aplicar transformações logarítmicas em algumas colunas assimétricas
-def transform_log_features(data):
-    # Aplica log em algumas variáveis assimétricas
-    data['Avg_Open_To_Buy'] = data['Avg_Open_To_Buy'].apply(lambda s: np.log(s))
-    data['Total_Trans_Amt'] = data['Total_Trans_Amt'].apply(lambda s: np.log(s))
-    data['Total_Trans_Ct'] = data['Total_Trans_Ct'].apply(lambda s: np.log(s))
-    
-    # Realiza a transformação 'yeo-johnson' na variável 'Avg_Utilization_Ratio'    
-    data_transformed, _ = stats.yeojohnson(data['Avg_Utilization_Ratio'])
-    data['Avg_Utilization_Ratio'] = data_transformed    
-    return data
 
 # Função que realiza a codificação de variáveis categóricas utilizando LabelEncoder
 def encode_features(data):
@@ -55,18 +45,20 @@ def encode_features(data):
     dict_encoders['Gender'] = [LabelEncoder(), 'Gender_Encoded']
     data['Gender_Encoded'] = dict_encoders['Gender'][0].fit_transform(data['Gender'].values)
 
-    dict_encoders['Income_Category'] = [LabelEncoder(), 'IncomeCategory_Encoded']
-    data['IncomeCategory_Encoded'] = dict_encoders['Income_Category'][0].fit_transform(data['Income_Category'].values)
+    income_order = [['Unknown', 'Less than $40K', '$40K - $60K', '$60K - $80K', '$80K - $120K', '$120K +']]
+    dict_encoders['Income_Category'] = [OrdinalEncoder(categories=income_order), 'IncomeCategory_Encoded']
+    data['IncomeCategory_Encoded'] = dict_encoders['Income_Category'][0].fit_transform(data[['Income_Category']].values)
 
-    dict_encoders['Card_Category'] = [LabelEncoder(), 'CardCategory_Encoded']
-    data['CardCategory_Encoded'] = dict_encoders['Card_Category'][0].fit_transform(data['Card_Category'].values)
-    
-    return data, dict_encoders
+    card_order = [['Blue', 'Silver', 'Gold', 'Platinum']]
+    dict_encoders['Card_Category'] = [OrdinalEncoder(categories=card_order), 'CardCategory_Encoded']
+    data['CardCategory_Encoded'] = dict_encoders['Card_Category'][0].fit_transform(data[['Card_Category']].values)
+
+    return data, dict_encoders 
+
 
 # Função que realiza todo o pré-processamento dos dados
 @st.cache_data
 def pre_processing(data):
-    data = transform_log_features(data)
     data, dict_encoders = encode_features(data)
 
     # Cria um novo dataframe com as colunas categóricas codificadas
@@ -90,20 +82,26 @@ def pre_processing(data):
     y = bank_model.iloc[:, 9].values    
     return X, y, dict_encoders, bank_model
 
-# Função para treinar o modelo de regressão linear
-@st.cache_data
-def model_training(X_train_scaled, y_train, X_test_scaled, y_test):
-    model = LinearRegression()
-    model.fit(X_train_scaled, y_train)
-    
-    y_pred = model.predict(X_test_scaled)
 
+# Função para treinar o modelo de regressão linear
+def model_training(X_train_transformed, y_train_transformed, X_test_transformed, y_test, pt_y):
+    model = LinearRegression()
+    model.fit(X_train_transformed, y_train_transformed)
+    
+    y_pred_transformed = model.predict(X_test_transformed)
+
+    # Reverte as previsões para a escala original
+    y_pred = pt_y.inverse_transform(y_pred_transformed)    
+    y_pred = y_pred.reshape(-1)
+
+    # Calcula métricas de desempenho usando os valores originais de y_test (sem transformação)
     mape = mean_absolute_percentage_error(y_test, y_pred)
     mae = mean_absolute_error(y_test, y_pred)
     rmse = np.sqrt(mean_squared_error(y_test, y_pred))
     mse = mean_squared_error(y_test, y_pred)
 
     return y_pred, mae, mape, mse, rmse
+
 
 # Função para plotar o gráfico de regressão
 def plot_regression(X_test_inverse, feature_idx, feature_name, encoded=False, dict_encoders=None):
@@ -113,8 +111,12 @@ def plot_regression(X_test_inverse, feature_idx, feature_name, encoded=False, di
     X_test_plot = X_test_inverse[:, feature_idx]
 
     # Invertendo a codificação do LabelEncoder nos dados de teste
-    if encoded:
-        X_test_plot = dict_encoders[feature_name][0].inverse_transform(X_test_plot.astype(int))
+    if encoded:        
+        if isinstance(dict_encoders[feature_name][0], LabelEncoder):
+            X_test_plot = dict_encoders[feature_name][0].inverse_transform(X_test_plot.astype(int))
+        else:
+            X_test_plot = X_test_plot.reshape(-1, 1).astype(int)
+            X_test_plot = dict_encoders[feature_name][0].inverse_transform(X_test_plot).ravel() 
 
     # Plota o gráfico de dispersão com os dados reais
     ax = sns.scatterplot(x=X_test_plot, y=y_test, label=feature_name)
@@ -137,23 +139,32 @@ st.title('Resultados do Modelo')
 file_loaded, bank = upload_file()
 
 if file_loaded:
-    bank_selection = bank.copy()
+    bank_original = bank.copy()
     
     # Pré-processamento dos dados
     X, y, dict_encoders, bank_model = pre_processing(bank)
 
     # 70% serão usados para treino. 30% serão usados para teste.
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=7070)
 
     # Transformação de escala das variáveis independentes
-    ss_train = StandardScaler()
-    X_train_scaled = ss_train.fit_transform(X_train)
+    pt_X = PowerTransformer()
+    X_train_transformed = X_train
+    X_train_transformed[:, [5, 6, 7, 8]] = pt_X.fit_transform(X_train_transformed[:, [5, 6, 7, 8]])
 
-    ss_test = StandardScaler()
-    X_test_scaled = ss_test.fit_transform(X_test)
+    X_test_transformed = X_test
+    X_test_transformed[:, [5, 6, 7, 8]] = pt_X.fit_transform(X_test_transformed[:, [5, 6, 7, 8]])
+
+    # Transformação de escala da variáveis dependente
+    pt_y = PowerTransformer()
+    y_train_transformed = pt_y.fit_transform(y_train.reshape(-1, 1))
     
     # Treinamento e avaliação do modelo
-    y_pred, mae, mape, mse, rmse = model_training(X_train_scaled, y_train, X_test_scaled, y_test)
+    y_pred, mae, mape, mse, rmse = model_training(X_train_transformed, 
+                                                  y_train_transformed, 
+                                                  X_test_transformed, 
+                                                  y_test, 
+                                                  pt_y)
 
     # Seção expansíveis para métricas e visualização dos resultados    
     with st.expander('Métricas'):
@@ -169,13 +180,14 @@ if file_loaded:
 
     # Seção expansíveis para visualização dos resultados 
     with st.expander('Visualização dos Resultados'):
-        # Inverte a escala nos dados de teste antes da plotagem
-        X_test_inverse = ss_test.inverse_transform(X_test)
-
         # Lista de variáveis do banco de dados original
-        var_list = bank_selection.drop('Credit_Limit', axis=1).columns.to_list()
+        var_list = bank_original.drop('Credit_Limit', axis=1).columns.to_list()
         features = st.multiselect('Selecione a variável:', options=var_list)
         categorical_list = bank.select_dtypes(exclude='number').columns.to_list()
+
+        # Inverte a escala nos dados de teste antes da plotagem
+        X_test_inverse = X_test_transformed
+        X_test_inverse[:, [5, 6, 7, 8]] = pt_X.inverse_transform(X_test_inverse[:, [5, 6, 7, 8]])          
         
         if features:
             for feature in features:
