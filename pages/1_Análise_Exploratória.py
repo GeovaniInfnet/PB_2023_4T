@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import squarify
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import PowerTransformer
 
 # Carrega o arquivo CSV e valida os dados
 @st.cache_data
@@ -123,18 +123,18 @@ def plot_credit_limit_relationships(data, x, hue, split):
 # Função para plotar a matriz de correlação entre variáveis numéricas
 @st.cache_data
 def plot_correlation_matrix(data):
-    # Cria uma instância do objeto de escalonamento
-    ss = StandardScaler()
+    # Cria uma instância do objeto de transformação (transforma os dados em uma distribuição normal)
+    pt = PowerTransformer()
 
     # Cria uma cópia da base original
     df_scale = data.select_dtypes('number').copy()
 
     # Coloca todas as variáveis numéricas na mesma escala
-    df_scale.loc[:, df_scale.columns] = ss.fit_transform(df_scale)
+    df_scale.loc[:, df_scale.columns] = pt.fit_transform(df_scale)
 
     # Cria um mapa de calor com a correlação entre as variáveis.
     plt.figure(figsize=(8,5))
-    ax = sns.heatmap(df_scale.corr(), annot=True, fmt=".1f", linewidth=.5, cmap="YlOrRd")
+    ax = sns.heatmap(df_scale.corr(), annot=True, fmt=".1f", linewidth=.5, cmap="coolwarm")
     return ax.figure
 
 # Configuração da página com layout amplo e título
