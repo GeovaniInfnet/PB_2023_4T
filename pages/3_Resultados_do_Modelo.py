@@ -149,11 +149,8 @@ if file_loaded:
 
     # Transformação de escala das variáveis independentes
     pt_X = PowerTransformer()
-    X_train_transformed = X_train
-    X_train_transformed[:, [5, 6, 7, 8]] = pt_X.fit_transform(X_train_transformed[:, [5, 6, 7, 8]])
-
-    X_test_transformed = X_test
-    X_test_transformed[:, [5, 6, 7, 8]] = pt_X.fit_transform(X_test_transformed[:, [5, 6, 7, 8]])
+    X_train_transformed = pt_X.fit_transform(X_train)
+    X_test_transformed = pt_X.fit_transform(X_test) 
 
     # Transformação de escala da variáveis dependente
     pt_y = PowerTransformer()
@@ -186,8 +183,7 @@ if file_loaded:
         categorical_list = bank.select_dtypes(exclude='number').columns.to_list()
 
         # Inverte a escala nos dados de teste antes da plotagem
-        X_test_inverse = X_test_transformed
-        X_test_inverse[:, [5, 6, 7, 8]] = pt_X.inverse_transform(X_test_inverse[:, [5, 6, 7, 8]])          
+        X_test_inverse = pt_X.inverse_transform(X_test_transformed)           
         
         if features:
             for feature in features:
