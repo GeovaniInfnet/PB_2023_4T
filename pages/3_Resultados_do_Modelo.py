@@ -91,8 +91,7 @@ def model_training(X_train_transformed, y_train_transformed, X_test_transformed,
     y_pred_transformed = model.predict(X_test_transformed)
 
     # Reverte as previsões para a escala original
-    y_pred = pt_y.inverse_transform(y_pred_transformed)    
-    y_pred = y_pred.reshape(-1)
+    y_pred = pt_y.inverse_transform(y_pred_transformed.reshape(-1,1)).ravel() 
 
     # Calcula métricas de desempenho usando os valores originais de y_test (sem transformação)
     mape = mean_absolute_percentage_error(y_test, y_pred)
@@ -145,12 +144,23 @@ if file_loaded:
     X, y, dict_encoders, bank_model = pre_processing(bank)
 
     # 70% serão usados para treino. 30% serão usados para teste.
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=7070)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1)
 
+    # 0 - 'Customer_Age'
+    # 2 - 'Dependent_count'
+    # 5 - 'Avg_Open_To_Buy'
+    # 6 - 'Total_Trans_Amt'
+    # 7 - 'Total_Trans_Ct'    
+    # 8 - 'Avg_Utilization_Ratio'
+    transform_list = [0,2,5,6,7,8]
+    
     # Transformação de escala das variáveis independentes
     pt_X = PowerTransformer()
-    X_train_transformed = pt_X.fit_transform(X_train)
-    X_test_transformed = pt_X.fit_transform(X_test) 
+    X_train_transformed = X_train
+    X_train_transformed[:, transform_list] = pt_X.fit_transform(X_train_transformed[:, transform_list])
+    
+    X_test_transformed = X_test
+    X_test_transformed[:, transform_list] = pt_X.transform(X_test_transformed[:,transform_list]) 
 
     # Transformação de escala da variáveis dependente
     pt_y = PowerTransformer()
@@ -183,7 +193,8 @@ if file_loaded:
         categorical_list = bank.select_dtypes(exclude='number').columns.to_list()
 
         # Inverte a escala nos dados de teste antes da plotagem
-        X_test_inverse = pt_X.inverse_transform(X_test_transformed)           
+        X_test_inverse = X_test_transformed
+        X_test_inverse[:, transform_list] = pt_X.inverse_transform(X_test_inverse[:, transform_list])      
         
         if features:
             for feature in features:
